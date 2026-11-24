@@ -1,4 +1,4 @@
--- Motor utilizado: SQL Server (T-SQL) - ejecutar en SQL Server Management Studio (SSMS)
+-- Motor utilizado: PostgreSQL 16 (ejecutado y verificado con psql 16.15; ver evidencia/)
 /* =====================================================================
    Pre-entrega 4 - Consultas SQL de negocio: extrayendo métricas clave
    Base de datos : Ventas_Tech_DB (creada en M3 con modulo-03/ventas_tech_db.sql)
@@ -9,10 +9,16 @@
    (id_venta, id_cliente, id_producto, cantidad, precio_unitario, fecha_venta).
    Importe de cada venta = cantidad * precio_unitario.
    Cada fila de ventas (id_venta) se cuenta como un pedido.
-   ===================================================================== */
 
-USE Ventas_Tech_DB;
-GO
+   Cómo ejecutarlo (detalle en modulo-04/README.md): primero correr el script
+   del Módulo 3 y después, conectado a la misma base:
+       psql -d ventas_tech_db -f m4_consultas_negocio.sql
+
+   Equivalencias con SQL Server (según la consigna):
+   - MONTH(fecha_venta) -> EXTRACT(MONTH FROM fecha_venta)
+   - YEAR(fecha_venta)  -> EXTRACT(YEAR FROM fecha_venta)
+   - SELECT TOP 5 ...   -> ... LIMIT 5
+   ===================================================================== */
 
 
 -- =====================================================================
@@ -23,13 +29,13 @@ GO
 -- Resultado esperado con los datos de M3: 1 fila (marzo 2024).
 -- =====================================================================
 SELECT
-    YEAR(fecha_venta)                                        AS anio,
-    MONTH(fecha_venta)                                       AS mes,
+    EXTRACT(YEAR FROM fecha_venta)                           AS anio,
+    EXTRACT(MONTH FROM fecha_venta)                          AS mes,
     SUM(cantidad * precio_unitario)                          AS total_facturado,
     COUNT(*)                                                 AS cantidad_pedidos,
     CAST(AVG(cantidad * precio_unitario) AS DECIMAL(10,2))   AS ticket_promedio
 FROM ventas
-GROUP BY YEAR(fecha_venta), MONTH(fecha_venta)
+GROUP BY EXTRACT(YEAR FROM fecha_venta), EXTRACT(MONTH FROM fecha_venta)
 ORDER BY anio, mes;
 -- Resultado: 2024 | 3 | 6444.00 | 10 | 644.40
 
@@ -38,13 +44,14 @@ ORDER BY anio, mes;
 -- CONSULTA 2 - Ranking de productos
 -- Top 5 de id_producto por total facturado, con unidades vendidas.
 -- =====================================================================
-SELECT TOP 5
+SELECT
     id_producto,
     SUM(cantidad)                      AS unidades_vendidas,
     SUM(cantidad * precio_unitario)    AS total_facturado
 FROM ventas
 GROUP BY id_producto
-ORDER BY total_facturado DESC;
+ORDER BY total_facturado DESC
+LIMIT 5;                                   -- equivale a TOP 5 de SQL Server
 -- Resultado:
 --   1 |  3 | 3600.00
 --   3 |  3 | 1350.00
@@ -108,7 +115,6 @@ ORDER BY total_facturado DESC;
 --   6 |  380.00 | 1074.00 | Por debajo
 --   2 |  364.00 | 1074.00 | Por debajo
 --   4 |  360.00 | 1074.00 | Por debajo
-GO
 
 
 -- =====================================================================
