@@ -1,0 +1,155 @@
+-- Evidencia: ejecución de m5_consultas_joins.sql
+-- Requisito previo: base ventas_tech_db creada y cargada con modulo-03/ventas_tech_db.sql
+-- Comando: psql -X -v ON_ERROR_STOP=1 --echo-queries -d ventas_tech_db -f m5_consultas_joins.sql
+-- Motor: PostgreSQL 16.15 (Ubuntu 16.15-0ubuntu0.24.04.1) on x86_64-pc-linux-gnu
+-- Fecha: 2026-11-24 17:24
+
+/* =====================================================================
+   Pre-entrega 5 - Consultas con JOINs: cruzando tablas para enriquecer
+                   el análisis
+   Base de datos : Ventas_Tech_DB (creada en M3 con modulo-03/ventas_tech_db.sql)
+   Estudiante    : Lucas Sosa  -  Comisión #91080
+   Curso         : Data Analytics - Coderhouse
+
+   Esquema usado (M3):
+       categorias (1) ── (N) productos (1) ── (N) ventas (N) ── (1) clientes
+   Columnas para agrupar y filtrar en Power BI:
+       - categorias.nombre_categoria  (agrupar por tipo de producto)
+       - clientes.ciudad              (dimensión geográfica, para filtrar)
+       - ventas.fecha_venta           (análisis temporal)
+
+   Cómo ejecutarlo (detalle en modulo-05/README.md): primero correr el script
+   del Módulo 3 y después, conectado a la misma base:
+       psql -d ventas_tech_db -f m5_consultas_joins.sql
+   ===================================================================== */
+-- =====================================================================
+-- CONSULTA 1 - Vista base del proyecto (INNER JOIN)
+-- Propósito: armar en una sola fila por venta todo lo que necesita
+-- Power BI: fecha, cliente, ciudad, producto, categoría, cantidad,
+-- precio unitario y total. Es la fuente de datos principal del dashboard.
+-- Cruce por claves foráneas:
+--   ventas.id_cliente    -> clientes.id_cliente
+--   ventas.id_producto   -> productos.id_producto
+--   productos.id_categoria -> categorias.id_categoria
+-- =====================================================================
+SELECT
+    v.id_venta,
+    v.fecha_venta,
+    c.id_cliente,
+    c.nombre                              AS cliente,
+    c.ciudad                              AS ciudad_cliente,
+    p.id_producto,
+    p.nombre_producto                     AS producto,
+    cat.nombre_categoria                  AS categoria,
+    v.cantidad,
+    v.precio_unitario,
+    v.cantidad * v.precio_unitario        AS total_venta
+FROM ventas AS v
+INNER JOIN clientes   AS c   ON c.id_cliente     = v.id_cliente
+INNER JOIN productos  AS p   ON p.id_producto    = v.id_producto
+INNER JOIN categorias AS cat ON cat.id_categoria = p.id_categoria
+ORDER BY v.fecha_venta, v.id_venta;
+ id_venta | fecha_venta | id_cliente |   cliente    | ciudad_cliente | id_producto |      producto      |   categoria    | cantidad | precio_unitario | total_venta 
+----------+-------------+------------+--------------+----------------+-------------+--------------------+----------------+----------+-----------------+-------------
+        1 | 2024-03-05  |          1 | María López  | Buenos Aires   |           1 | Laptop Pro 15      | Computación    |        2 |         1200.00 |     2400.00
+        2 | 2024-03-06  |          2 | Carlos Ruiz  | Córdoba        |           2 | Mouse Inalámbrico  | Accesorios     |        5 |           28.00 |      140.00
+        3 | 2024-03-07  |          3 | Ana Gómez    | Rosario        |           3 | Monitor 4K 27      | Computación    |        1 |          450.00 |      450.00
+        4 | 2024-03-08  |          1 | María López  | Buenos Aires   |           4 | Auriculares BT Pro | Audio          |        2 |          120.00 |      240.00
+        5 | 2024-03-10  |          4 | Pedro Sanz   | Mendoza        |           5 | SSD Externo 1TB    | Almacenamiento |        3 |          130.00 |      390.00
+        6 | 2024-03-11  |          2 | Carlos Ruiz  | Córdoba        |           6 | Teclado Mecánico   | Accesorios     |        4 |           95.00 |      380.00
+        7 | 2024-03-12  |          5 | Laura Torres | Tucumán        |           1 | Laptop Pro 15      | Computación    |        1 |         1200.00 |     1200.00
+        8 | 2024-03-13  |          3 | Ana Gómez    | Rosario        |           2 | Mouse Inalámbrico  | Accesorios     |        8 |           28.00 |      224.00
+        9 | 2024-03-14  |          4 | Pedro Sanz   | Mendoza        |           4 | Auriculares BT Pro | Audio          |        1 |          120.00 |      120.00
+       10 | 2024-03-15  |          5 | Laura Torres | Tucumán        |           3 | Monitor 4K 27      | Computación    |        2 |          450.00 |      900.00
+(10 rows)
+
+SELECT
+    c.nombre,
+    c.email,
+    c.fecha_registro
+FROM clientes AS c
+LEFT JOIN ventas AS v ON v.id_cliente = c.id_cliente
+WHERE v.id_venta IS NULL
+ORDER BY c.fecha_registro;
+ nombre | email | fecha_registro 
+--------+-------+----------------
+(0 rows)
+
+SELECT
+    p.nombre_producto,
+    cat.nombre_categoria AS categoria,
+    p.precio
+FROM productos AS p
+INNER JOIN categorias AS cat ON cat.id_categoria = p.id_categoria
+LEFT JOIN  ventas     AS v   ON v.id_producto    = p.id_producto
+WHERE v.id_venta IS NULL
+ORDER BY cat.nombre_categoria, p.nombre_producto;
+ nombre_producto | categoria | precio 
+-----------------+-----------+--------
+(0 rows)
+
+BEGIN;
+BEGIN
+INSERT INTO clientes (id_cliente, nombre, email, ciudad, fecha_registro) VALUES
+  (6, 'Sofía Méndez', 'sofia@mail.com', 'Salta',   '2024-03-18'),
+  (7, 'Diego Paz',    'diego@mail.com', 'Neuquén', '2024-03-20');
+INSERT 0 2
+INSERT INTO productos (id_producto, nombre_producto, id_categoria, precio, stock, activo) VALUES
+  (7, 'Webcam Full HD',   2, 60.00, 25, TRUE),
+  (8, 'Parlante BT Mini', 3, 45.00, 30, TRUE);
+INSERT 0 2
+SELECT c.nombre, c.email, c.fecha_registro
+FROM clientes AS c
+LEFT JOIN ventas AS v ON v.id_cliente = c.id_cliente
+WHERE v.id_venta IS NULL
+ORDER BY c.fecha_registro;
+    nombre    |     email      | fecha_registro 
+--------------+----------------+----------------
+ Sofía Méndez | sofia@mail.com | 2024-03-18
+ Diego Paz    | diego@mail.com | 2024-03-20
+(2 rows)
+
+SELECT p.nombre_producto, cat.nombre_categoria AS categoria, p.precio
+FROM productos AS p
+INNER JOIN categorias AS cat ON cat.id_categoria = p.id_categoria
+LEFT JOIN  ventas     AS v   ON v.id_producto    = p.id_producto
+WHERE v.id_venta IS NULL
+ORDER BY cat.nombre_categoria, p.nombre_producto;
+ nombre_producto  | categoria  | precio 
+------------------+------------+--------
+ Webcam Full HD   | Accesorios |  60.00
+ Parlante BT Mini | Audio      |  45.00
+(2 rows)
+
+ROLLBACK;
+ROLLBACK
+SELECT
+    canal,
+    COUNT(*)                          AS cantidad_ventas,
+    SUM(total)                        AS total_canal,
+    CAST(AVG(total) AS DECIMAL(10,2)) AS ticket_promedio
+FROM (
+    SELECT v.fecha_venta,
+           v.cantidad * v.precio_unitario AS total,
+           'Casa central (Buenos Aires)'  AS canal
+    FROM ventas AS v
+    INNER JOIN clientes AS c ON c.id_cliente = v.id_cliente
+    WHERE c.ciudad = 'Buenos Aires'
+    UNION ALL
+    SELECT v.fecha_venta,
+           v.cantidad * v.precio_unitario AS total,
+           'Sucursales del interior'      AS canal
+    FROM ventas AS v
+    INNER JOIN clientes AS c ON c.id_cliente = v.id_cliente
+    WHERE c.ciudad <> 'Buenos Aires' OR c.ciudad IS NULL
+) AS consolidado
+GROUP BY canal
+ORDER BY total_canal DESC;
+            canal            | cantidad_ventas | total_canal | ticket_promedio 
+-----------------------------+-----------------+-------------+-----------------
+ Sucursales del interior     |               8 |     3804.00 |          475.50
+ Casa central (Buenos Aires) |               2 |     2640.00 |         1320.00
+(2 rows)
+
+
+-- Código de salida de psql: 0
