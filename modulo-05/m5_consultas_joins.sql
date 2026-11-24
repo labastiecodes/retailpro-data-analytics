@@ -1,4 +1,4 @@
--- Motor utilizado: SQL Server (T-SQL) - ejecutar en SQL Server Management Studio (SSMS)
+-- Motor utilizado: PostgreSQL 16 (ejecutado y verificado con psql 16.15; ver evidencia/)
 /* =====================================================================
    Pre-entrega 5 - Consultas con JOINs: cruzando tablas para enriquecer
                    el análisis
@@ -12,10 +12,11 @@
        - categorias.nombre_categoria  (agrupar por tipo de producto)
        - clientes.ciudad              (dimensión geográfica, para filtrar)
        - ventas.fecha_venta           (análisis temporal)
-   ===================================================================== */
 
-USE Ventas_Tech_DB;
-GO
+   Cómo ejecutarlo (detalle en modulo-05/README.md): primero correr el script
+   del Módulo 3 y después, conectado a la misma base:
+       psql -d ventas_tech_db -f m5_consultas_joins.sql
+   ===================================================================== */
 
 
 -- =====================================================================
@@ -105,15 +106,15 @@ ORDER BY cat.nombre_categoria, p.nombre_producto;
 -- se hace ROLLBACK: la base queda exactamente como estaba.
 -- Resultado esperado: consulta 2 -> 2 filas; consulta 3 -> 2 filas.
 -- =====================================================================
-BEGIN TRANSACTION;
+BEGIN;
 
 INSERT INTO clientes (id_cliente, nombre, email, ciudad, fecha_registro) VALUES
   (6, 'Sofía Méndez', 'sofia@mail.com', 'Salta',   '2024-03-18'),
   (7, 'Diego Paz',    'diego@mail.com', 'Neuquén', '2024-03-20');
 
 INSERT INTO productos (id_producto, nombre_producto, id_categoria, precio, stock, activo) VALUES
-  (7, 'Webcam Full HD',   2, 60.00, 25, 1),
-  (8, 'Parlante BT Mini', 3, 45.00, 30, 1);
+  (7, 'Webcam Full HD',   2, 60.00, 25, TRUE),
+  (8, 'Parlante BT Mini', 3, 45.00, 30, TRUE);
 
 -- Consulta 2 repetida: devuelve Sofía Méndez y Diego Paz
 SELECT c.nombre, c.email, c.fecha_registro
@@ -130,8 +131,7 @@ LEFT JOIN  ventas     AS v   ON v.id_producto    = p.id_producto
 WHERE v.id_venta IS NULL
 ORDER BY cat.nombre_categoria, p.nombre_producto;
 
-ROLLBACK TRANSACTION;   -- deshace los 4 registros de prueba
-GO
+ROLLBACK;   -- deshace los 4 registros de prueba
 
 
 -- =====================================================================
@@ -179,4 +179,3 @@ ORDER BY total_canal DESC;
 -- tiene 4 clientes contra 1; por venta, la casa central vende casi el
 -- triple (ticket de 1320 contra 475,50), impulsada por una compra de 2
 -- laptops. Conviene llevar al interior la oferta de equipos de mayor valor.
-GO
